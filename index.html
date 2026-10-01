@@ -41,9 +41,10 @@ h2{font-size:1.1rem;margin:0 0 8px}
 .who{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:18px}
 .who label{font-weight:700}
 .who small{color:var(--muted);flex-basis:100%}
-input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--panel);border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+input[type=text],input[type=number],select{font:inherit;color:var(--ink);background:var(--panel);border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
 input[type=text]{width:220px;max-width:100%}
 input[type=number]{width:130px}
+select{width:200px;max-width:100%}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:16px}
 .tabs button{font:inherit;font-weight:700;color:var(--muted);background:none;border:0;border-bottom:4px solid transparent;margin-bottom:-2px;padding:10px 12px;cursor:pointer}
@@ -111,6 +112,7 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
       <h2>Relation donnée</h2>
       <p class="big">f = 1 / T</p>
       <p>T : période du signal, en secondes (s). f : fréquence du son, en hertz (Hz).</p>
+      <p>Conversions : 1 ms = 10⁻³ s et 1 µs = 10⁻⁶ s. Les sons audibles ont une fréquence de 20 Hz à 20 kHz.</p>
     </div>
 
     <div class="panel">
@@ -120,20 +122,22 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
         <button data-s="3" aria-pressed="false">Son 3</button>
         <button class="btn primary" id="play1" type="button">Écouter ce son</button>
       </div>
-      <canvas id="cv1" aria-label="Signal sonore : tension en fonction du temps en millisecondes"></canvas>
+      <p class="hint" id="playmsg"></p>
+      <canvas id="cv1" aria-label="Signal sonore : tension en fonction du temps"></canvas>
       <div class="cursors">
         <div class="cur"><span class="tag t1">Curseur 1</span><input type="range" id="s1a" min="0" max="1000" value="100" aria-label="Position du curseur 1"><output id="o1a"></output></div>
         <div class="cur"><span class="tag t2">Curseur 2</span><input type="range" id="s1b" min="0" max="1000" value="400" aria-label="Position du curseur 2"><output id="o1b"></output></div>
       </div>
       <p class="diff" id="d1"></p>
-      <p class="hint">Place les curseurs sur deux motifs identiques qui se suivent (par exemple deux sommets). Tu peux aussi toucher le graphique.</p>
+      <p class="hint">Le signal se répète. La période est la durée du plus petit motif complet, qui se reproduit identique à lui-même. Attention : un motif peut contenir plusieurs sommets. Regarde l'unité de temps de l'axe. Tu peux aussi toucher le graphique.</p>
     </div>
 
     <div class="panel">
       <h2>Mes résultats pour ce son</h2>
-      <div class="field"><label for="t1ms">Période lue sur le signal</label><input id="t1ms" type="number" step="any" inputmode="decimal"><span class="unit">ms</span></div>
+      <div class="field"><label for="t1ms">Période lue sur le signal</label><input id="t1ms" type="number" step="any" inputmode="decimal"><span class="unit" id="u1">ms</span></div>
       <div class="field"><label for="t1s">Période convertie</label><input id="t1s" type="number" step="any" inputmode="decimal"><span class="unit">s</span></div>
       <div class="field"><label for="f1">Fréquence calculée</label><input id="f1" type="number" step="any" inputmode="decimal"><span class="unit">Hz</span></div>
+      <div class="field"><label for="cat1">Type de son</label><select id="cat1"><option value="">Choisis…</option><option value="infra">Infrason</option><option value="audible">Son audible</option><option value="ultra">Ultrason</option></select></div>
       <button class="btn primary" id="chk1" type="button">Vérifier mes résultats</button>
       <ul class="fb" id="fb1" aria-live="polite"></ul>
     </div>
@@ -149,8 +153,10 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
 
     <div class="panel">
       <div class="seg" id="meds" role="group" aria-label="Choisir le milieu">
+        <button data-m="co2" aria-pressed="false">Dioxyde de carbone</button>
         <button data-m="air" aria-pressed="true">Air</button>
         <button data-m="eau" aria-pressed="false">Eau</button>
+        <button data-m="verre" aria-pressed="false">Verre</button>
         <button data-m="acier" aria-pressed="false">Acier</button>
       </div>
       <p class="big" id="dist"></p>
@@ -195,30 +201,39 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   function params(){
     var name = norm($('#prenom').value);
     var r = mulberry(hash(name || 'exemple'));
-    var T1s=[2.5,4,5,8,10], ds=[25,30,35,40,45,50,55,60];
-    var T1=T1s[Math.floor(r()*T1s.length)];
+    var ds=[25,30,35,40,45,50,55,60];
     var d=ds[Math.floor(r()*ds.length)];
     var phase=r();
     var seed=Math.floor(r()*1e9);
     var dws=[60,75,90,105,120], das=[100,150,200,250,300];
     var dw=dws[Math.floor(r()*dws.length)];
     var da=das[Math.floor(r()*das.length)];
-    return {name:name,T1:T1,d:d,dw:dw,da:da,phase:phase,seed:seed};
+    var dgs=[100,125,150,175,200], dcs=[20,25,30,35,40];
+    var dg=dgs[Math.floor(r()*dgs.length)];
+    var dc=dcs[Math.floor(r()*dcs.length)];
+    var Tis=[100,125,200,250], Tas=[1,1.25,2,2.5,4], Tus=[10,20,25,40];
+    var Ti=Tis[Math.floor(r()*Tis.length)];
+    var Ta=Tas[Math.floor(r()*Tas.length)];
+    var Tu=Tus[Math.floor(r()*Tus.length)];
+    return {name:name,d:d,dw:dw,da:da,dg:dg,dc:dc,Ti:Ti,Ta:Ta,Tu:Tu,phase:phase,seed:seed};
   }
   function sounds(P){
     var list=[
-      {T:P.T1,harm:[1,0.15]},
-      {T:P.T1,harm:[1,0.7,0.5,0.3]},
-      {T:P.T1/2,harm:[1,0.15]}
+      {cat:'infra',   nom:'infrason',    unit:'ms', fac:1e-3, T:P.Ti, terms:[[1,0.55,0.0],[3,1.0,1.0],[4,0.6,2.4]]},
+      {cat:'audible', nom:'son audible', unit:'ms', fac:1e-3, T:P.Ta, terms:[[1,0.4,2.5],[2,1.0,0.3],[3,0.85,1.7],[5,0.5,0.9]]},
+      {cat:'ultra',   nom:'ultrason',    unit:'µs', fac:1e-6, T:P.Tu, terms:[[1,0.5,0.0],[2,0.95,1.1],[5,0.7,2.0],[7,0.35,0.4]]}
     ];
-    list.forEach(function(s){
-      var m=0; for(var i=0;i<400;i++){ var v=rawWave(s,i/400*s.T,0); if(Math.abs(v)>m) m=Math.abs(v); }
-      s.norm=m;
+    list.forEach(function(sd){
+      sd.fHz=1/(sd.T*sd.fac);
+      var m=0; for(var i=0;i<600;i++){ var v=rawWave(sd,i/600*sd.T,0); if(Math.abs(v)>m) m=Math.abs(v); }
+      sd.norm=m;
     });
     return list;
   }
-  function rawWave(s,t,phase){
-    var v=0; for(var k=0;k<s.harm.length;k++){ v+=s.harm[k]*Math.sin(2*Math.PI*(k+1)*(t/s.T+phase)); }
+  function catOf(f){ return f<20?'infra':(f>20000?'ultra':'audible'); }
+  function rawWave(sd,t,phase){
+    var v=0;
+    for(var k=0;k<sd.terms.length;k++){ var q=sd.terms[k]; v+=q[1]*Math.sin(2*Math.PI*(q[0]*(t/sd.T+phase))+q[2]); }
     return v;
   }
 
@@ -235,9 +250,11 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   var MED={
     air:  {v:340,  W:420, T0:30, dec:0, nom:'Air'},
     eau:  {v:1500, W:200, T0:20, dec:1, nom:'Eau'},
-    acier:{v:5800, W:120, T0:12, dec:1, nom:'Acier'}
+    acier:{v:5800, W:120, T0:12, dec:1, nom:'Acier'},
+    verre:{v:5300, W:120, T0:12, dec:1, nom:'Verre'},
+    co2:  {v:267,  W:420, T0:30, dec:0, nom:'Dioxyde de carbone'}
   };
-  function medDist(P,m){ return m==='eau'?P.dw:(m==='acier'?P.da:P.d); }
+  function medDist(P,m){ return {air:P.d,eau:P.dw,acier:P.da,verre:P.dg,co2:P.dc}[m]; }
   function medDt(P,m){ return 2*medDist(P,m)/MED[m].v*1000; }
   function echoSample(P,t,m){
     var M=MED[m], a=noise(P), i=Math.floor(t/M.W*4000)%4000, dt=medDt(P,m), v=0;
@@ -250,11 +267,11 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
 
   // ---------- tracé ----------
   function niceStep(W){
-    var c=[0.5,1,2,5,10,20,50,100];
+    var c=[0.5,1,2,5,10,20,50,100,200,500];
     for(var i=0;i<c.length;i++){ if(W/c[i]<=10) return c[i]; }
     return 100;
   }
-  function plot(cv,W,sample,curs){
+  function plot(cv,W,sample,curs,unit){
     var dpr=window.devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight;
     if(!w||!h) return;
     cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
@@ -277,8 +294,8 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     g.moveTo(L,Tp+ph/2); g.lineTo(L+pw,Tp+ph/2);
     g.stroke();
     g.fillStyle=col('--axis'); g.font='13px "Atkinson Hyperlegible",system-ui,sans-serif'; g.textAlign='center';
-    for(i=0;i*step<=W+1e-9;i++){ t=i*step; g.fillText(String(t).replace('.',','),X(t),Tp+ph+16); }
-    g.textAlign='right'; g.fillText('t (ms)',L+pw,Tp+ph+34);
+    for(i=0;i*step<=W+1e-9;i++){ t=i*step; g.fillText(String(Math.round(t*1000)/1000).replace('.',','),X(t),Tp+ph+16); }
+    g.textAlign='right'; g.fillText('t ('+(unit||'ms')+')',L+pw,Tp+ph+34);
     g.save(); g.translate(13,Tp+ph/2); g.rotate(-Math.PI/2); g.textAlign='center'; g.fillText('Tension',0,0); g.restore();
     g.strokeStyle=col('--signal'); g.lineWidth=1.8; g.beginPath();
     for(var px=0;px<=pw;px++){
@@ -300,18 +317,21 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   // ---------- état ----------
   var state={tab:1,snd:1,med:'air'};
   function draw1(){
-    var P=params(), S=sounds(P)[state.snd-1], W=6*S.T;
+    var P=params(), S=sounds(P)[state.snd-1], W=5*S.T;
     var c1=$('#s1a').value/1000*W, c2=$('#s1b').value/1000*W;
-    plot($('#cv1'),W,function(t){ return rawWave(S,t,P.phase)/S.norm; },[c1,c2]);
-    $('#o1a').textContent=fmt(c1,2)+' ms'; $('#o1b').textContent=fmt(c2,2)+' ms';
-    $('#d1').textContent='Durée entre les deux curseurs : '+fmt(Math.abs(c2-c1),2)+' ms';
+    plot($('#cv1'),W,function(t){ return rawWave(S,t,P.phase)/S.norm; },[c1,c2],S.unit);
+    $('#o1a').textContent=fmt(c1,2)+' '+S.unit; $('#o1b').textContent=fmt(c2,2)+' '+S.unit;
+    $('#d1').textContent='Durée entre les deux curseurs : '+fmt(Math.abs(c2-c1),2)+' '+S.unit;
+    $('#u1').textContent=S.unit;
   }
   var SCENE={
     air:'Tu es face à un mur. Tu fais un claquement, puis tu entends son écho.',
     eau:'Un sonar, placé sous un bateau, envoie un bref signal sonore vers le fond de la mer. Il reçoit ensuite l\'écho.',
-    acier:'Tu frappes l\'extrémité d\'un long rail en acier. L\'onde se réfléchit à l\'autre bout et revient jusqu\'à toi.'
+    acier:'Tu frappes l\'extrémité d\'un long rail en acier. L\'onde se réfléchit à l\'autre bout et revient jusqu\'à toi.',
+    verre:'Tu frappes l\'extrémité d\'un long tube de verre. L\'onde se réfléchit à l\'autre bout et revient jusqu\'à toi.',
+    co2:'Tu fais un claquement à l\'entrée d\'une longue conduite remplie de dioxyde de carbone. L\'onde se réfléchit à l\'autre bout et revient jusqu\'à toi.'
   };
-  var DISTLAB={air:'Distance au mur',eau:'Profondeur de l\'eau sous le bateau',acier:'Longueur du rail'};
+  var DISTLAB={air:'Distance au mur',eau:'Profondeur de l\'eau sous le bateau',acier:'Longueur du rail',verre:'Longueur du tube de verre',co2:'Longueur de la conduite'};
   function draw2(){
     var P=params(), m=state.med, M=MED[m];
     var c1=$('#s2a').value/1000*M.W, c2=$('#s2b').value/1000*M.W;
@@ -343,8 +363,8 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
       state.snd=+b.dataset.s;
       document.querySelectorAll('#sounds button[data-s]').forEach(function(x){ x.setAttribute('aria-pressed', x===b); });
       $('#s1a').value=100; $('#s1b').value=400;
-      ['#t1ms','#t1s','#f1'].forEach(function(i){ $(i).value=''; });
-      $('#fb1').innerHTML='';
+      ['#t1ms','#t1s','#f1','#cat1'].forEach(function(i){ $(i).value=''; });
+      $('#fb1').innerHTML=''; $('#playmsg').textContent='';
       refresh();
     };
   });
@@ -360,7 +380,7 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   });
   ['#s1a','#s1b','#s2a','#s2b'].forEach(function(id){ $(id).addEventListener('input',refresh); });
   $('#prenom').addEventListener('input',function(){
-    ['#t1ms','#t1s','#f1','#dtms','#dts','#dd','#vv'].forEach(function(i){ $(i).value=''; });
+    ['#t1ms','#t1s','#f1','#cat1','#dtms','#dts','#dd','#vv'].forEach(function(i){ $(i).value=''; });
     $('#fb1').innerHTML=''; $('#fb2').innerHTML='';
     refresh();
   });
@@ -394,14 +414,21 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   var ac=null;
   function ctx(){ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); return ac; }
   $('#play1').onclick=function(){
+    var P=params(), S=sounds(P)[state.snd-1];
+    if(S.cat!=='audible'){
+      $('#playmsg').textContent='Lecture terminée. Si tu n\'entends rien, calcule la fréquence du son pour comprendre pourquoi.';
+      return;
+    }
+    $('#playmsg').textContent='';
     try{
-      var P=params(), S=sounds(P)[state.snd-1], c=ctx(), n=S.harm.length;
+      var c=ctx(), n=0, i;
+      S.terms.forEach(function(q){ if(q[0]>n) n=q[0]; });
       var real=new Float32Array(n+1), imag=new Float32Array(n+1);
-      S.harm.forEach(function(a,i){ imag[i+1]=a; });
-      var o=c.createOscillator(); o.setPeriodicWave(c.createPeriodicWave(real,imag)); o.frequency.value=1000/S.T;
+      S.terms.forEach(function(q){ imag[q[0]]+=q[1]*Math.cos(q[2]); real[q[0]]+=q[1]*Math.sin(q[2]); });
+      var o=c.createOscillator(); o.setPeriodicWave(c.createPeriodicWave(real,imag)); o.frequency.value=S.fHz;
       var gn=c.createGain(), now=c.currentTime;
-      gn.gain.setValueAtTime(0,now); gn.gain.linearRampToValueAtTime(0.22,now+0.03);
-      gn.gain.setValueAtTime(0.22,now+1.1); gn.gain.linearRampToValueAtTime(0,now+1.3);
+      gn.gain.setValueAtTime(0,now); gn.gain.linearRampToValueAtTime(0.12,now+0.03);
+      gn.gain.setValueAtTime(0.12,now+1.1); gn.gain.linearRampToValueAtTime(0,now+1.3);
       o.connect(gn); gn.connect(c.destination); o.start(now); o.stop(now+1.35);
     }catch(e){}
   };
@@ -425,24 +452,32 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     });
   }
   $('#chk1').onclick=function(){
-    var P=params(), S=sounds(P)[state.snd-1], items=[];
-    var Tm=num('#t1ms'), Ts=num('#t1s'), f=num('#f1');
-    if(Tm===null||Ts===null||f===null){ show($('#fb1'),[{ok:false,t:'Remplis les trois cases avant de vérifier.'}]); return; }
-    items.push(close(Tm,S.T,0.07)
-      ? {ok:true,t:'ta lecture de la période est cohérente avec le signal.'}
-      : {ok:false,t:'ta lecture s\'éloigne du signal. La période est la durée du plus petit motif qui se répète : mesure entre deux sommets consécutifs.'});
-    items.push(close(Ts,Tm/1000,0.02)
-      ? {ok:true,t:'la conversion de ms en s est juste.'}
-      : {ok:false,t:'conversion : 1 ms = 10⁻³ s, donc T (s) = T (ms) × 10⁻³.'});
+    var P=params(), S=sounds(P)[state.snd-1], items=[], u=S.unit, T=S.T;
+    var Tm=num('#t1ms'), Ts=num('#t1s'), f=num('#f1'), cat=$('#cat1').value;
+    if(Tm===null||Ts===null||f===null||cat===''){ show($('#fb1'),[{ok:false,t:'Remplis les quatre cases avant de vérifier.'}]); return; }
+    var k, msg=null;
+    if(close(Tm,T,0.06)){
+      items.push({ok:true,t:'ta lecture de la période est cohérente avec le signal.'});
+    } else {
+      for(k=2;k<=6&&!msg;k++){ if(close(Tm,T/k,0.12)) msg='entre tes deux curseurs, le signal n\'est pas encore identique à lui-même : le motif complet est plus long. Cherche la plus petite durée après laquelle toute la forme se répète.'; }
+      for(k=2;k<=5&&!msg;k++){ if(close(Tm,T*k,0.06)) msg='tu as mesuré plusieurs motifs à la suite. La période est la durée d\'un seul motif complet.'; }
+      items.push({ok:false,t:msg||'ta lecture s\'éloigne du signal. La période est la durée du plus petit motif complet qui se répète identique à lui-même.'});
+    }
+    items.push(close(Ts,Tm*S.fac,0.02)
+      ? {ok:true,t:'la conversion de '+u+' en s est juste.'}
+      : {ok:false,t:u==='ms' ? 'conversion : 1 ms = 10⁻³ s, donc T (s) = T (ms) × 10⁻³.' : 'conversion : 1 µs = 10⁻⁶ s, donc T (s) = T (µs) × 10⁻⁶.'});
     if(close(f,1/Ts,0.03)){
       items.push({ok:true,t:'f = 1 / T est bien appliquée avec ta valeur de T en secondes.'});
     } else if(close(f,1/Tm,0.03)){
-      items.push({ok:false,t:'tu as utilisé T en ms. La relation f = 1 / T donne des hertz seulement si T est en secondes.'});
+      items.push({ok:false,t:'tu as utilisé T en '+u+'. La relation f = 1 / T donne des hertz seulement si T est en secondes.'});
     } else {
       items.push({ok:false,t:'refais le calcul f = 1 / T avec T en secondes.'});
     }
+    items.push(cat===catOf(f)
+      ? {ok:true,t:'le type de son est cohérent avec ta fréquence.'}
+      : {ok:false,t:'compare ta fréquence au domaine des sons audibles, de 20 Hz à 20 kHz. En dessous, ce sont des infrasons ; au-dessus, des ultrasons.'});
     var all=items.every(function(i){return i.ok;});
-    if(all && close(f,1000/S.T,0.08)) items.push({ok:true,t:'tes résultats sont cohérents avec le signal de ce son.'});
+    if(all && close(f,S.fHz,0.08)) items.push({ok:true,t:'tes résultats sont cohérents avec le signal de ce son.'});
     show($('#fb1'),items);
   };
   $('#chk2').onclick=function(){
@@ -473,8 +508,8 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     }
     var ecart=Math.abs(v-vref)/vref*100;
     items.push(ecart<=6
-      ? {ok:true,t:'ta célérité est proche de la valeur du cours pour ce milieu, '+fmt(vref,0)+' m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %).'}
-      : {ok:false,t:'ta célérité s\'éloigne de la valeur du cours pour ce milieu, '+fmt(vref,0)+' m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %). Vérifie ta lecture et tes unités.'});
+      ? {ok:true,t:'ta célérité est proche de la valeur de référence pour ce milieu, '+fmt(vref,0)+' m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %).'}
+      : {ok:false,t:'ta célérité s\'éloigne de la valeur de référence pour ce milieu, '+fmt(vref,0)+' m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %). Vérifie ta lecture et tes unités.'});
     show($('#fb2'),items);
   };
 
@@ -483,11 +518,14 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     var el=$('#prof');
     if(!/[?&]prof(=|&|$)/.test(location.search)){ el.hidden=true; return; }
     var P=params(), name=$('#prenom').value.trim()||'valeurs d\'exemple';
-    var T1=P.T1, T3=P.T1/2, Ts1=T1/1000, Ts3=T3/1000;
-    var h='<h2>Solution (mode professeur) : '+name+'</h2>'+
-      '<p><b>Sons 1 et 2</b> : T = '+fmt(T1,2)+' ms = '+fmt(T1,2)+' × 10⁻³ s = '+fmt(Ts1,4)+' s ; f = 1 / T = 1 / '+fmt(Ts1,4)+' = '+fmt(1/Ts1,0)+' Hz.</p>'+
-      '<p><b>Son 3</b> : T = '+fmt(T3,2)+' ms = '+fmt(T3,2)+' × 10⁻³ s = '+fmt(Ts3,5)+' s ; f = 1 / '+fmt(Ts3,5)+' = '+fmt(1/Ts3,0)+' Hz.</p>';
-    ['air','eau','acier'].forEach(function(m){
+    var h='<h2>Solution (mode professeur) : '+name+'</h2>';
+    sounds(P).forEach(function(sd,i){
+      var Tsec=sd.T*sd.fac, expo=sd.unit==='ms'?'10⁻³':'10⁻⁶';
+      var dec=sd.unit==='ms'?6:9;
+      var cname={infra:'infrason (f < 20 Hz)',audible:'son audible (20 Hz à 20 kHz)',ultra:'ultrason (f > 20 kHz)'}[sd.cat];
+      h+='<p><b>Son '+(i+1)+'</b> : T = '+fmt(sd.T,2)+' '+sd.unit+' = '+fmt(sd.T,2)+' × '+expo+' s = '+fmt(Tsec,dec).replace(/,?0+$/,'')+' s ; f = 1 / T = 1 / '+fmt(Tsec,dec).replace(/,?0+$/,'')+' = '+fmt(sd.fHz,0)+' Hz : '+cname+'.</p>';
+    });
+    ['co2','air','eau','verre','acier'].forEach(function(m){
       var d=medDist(P,m), dt=medDt(P,m), dts=dt/1000;
       h+='<p><b>'+MED[m].nom+'</b> : d = '+fmt(d,0)+' m ; Δt ≈ '+fmt(dt,1)+' ms = '+fmt(dt,1)+' × 10⁻³ s = '+fmt(dts,4)+' s ; distance parcourue = 2 × '+fmt(d,0)+' = '+fmt(2*d,0)+' m ; v = '+fmt(2*d,0)+' / '+fmt(dts,4)+' ≈ '+fmt(MED[m].v,0)+' m·s⁻¹.</p>';
     });
