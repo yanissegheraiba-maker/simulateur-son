@@ -148,21 +148,26 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     </div>
 
     <div class="panel">
+      <div class="seg" id="meds" role="group" aria-label="Choisir le milieu">
+        <button data-m="air" aria-pressed="true">Air</button>
+        <button data-m="eau" aria-pressed="false">Eau</button>
+        <button data-m="acier" aria-pressed="false">Acier</button>
+      </div>
       <p class="big" id="dist"></p>
-      <p>Tu es placé face à un mur. Tu fais un claquement, puis tu entends son écho.</p>
-      <div class="seg"><button class="btn primary" id="play2" type="button">Écouter le claquement et l'écho</button></div>
-      <canvas id="cv2" aria-label="Enregistrement du claquement et de son écho : tension en fonction du temps en millisecondes"></canvas>
+      <p id="scene"></p>
+      <div class="seg"><button class="btn primary" id="play2" type="button">Écouter l'émission et l'écho</button></div>
+      <canvas id="cv2" aria-label="Enregistrement de l'émission et de son écho : tension en fonction du temps en millisecondes"></canvas>
       <div class="cursors">
         <div class="cur"><span class="tag t1">Curseur 1</span><input type="range" id="s2a" min="0" max="1000" value="60" aria-label="Position du curseur 1"><output id="o2a"></output></div>
         <div class="cur"><span class="tag t2">Curseur 2</span><input type="range" id="s2b" min="0" max="1000" value="250" aria-label="Position du curseur 2"><output id="o2b"></output></div>
       </div>
       <p class="diff" id="d2"></p>
-      <p class="hint">Le premier groupe de pics est le claquement. Le second, plus faible, est l'écho. Place les curseurs au début de chacun.</p>
+      <p class="hint">Le premier groupe de pics est l'émission du son (claquement, signal du sonar ou coup sur le rail). Le second, plus faible, est l'écho. Place les curseurs au début de chacun.</p>
     </div>
 
     <div class="panel">
       <h2>Mes résultats</h2>
-      <div class="field"><label for="dtms">Durée entre le claquement et l'écho, lue sur le signal</label><input id="dtms" type="number" step="any" inputmode="decimal"><span class="unit">ms</span></div>
+      <div class="field"><label for="dtms">Durée entre l'émission et l'écho, lue sur le signal</label><input id="dtms" type="number" step="any" inputmode="decimal"><span class="unit">ms</span></div>
       <div class="field"><label for="dts">Durée convertie</label><input id="dts" type="number" step="any" inputmode="decimal"><span class="unit">s</span></div>
       <div class="field"><label for="dd">Distance parcourue par le son pendant cette durée</label><input id="dd" type="number" step="any" inputmode="decimal"><span class="unit">m</span></div>
       <div class="field"><label for="vv">Célérité calculée</label><input id="vv" type="number" step="any" inputmode="decimal"><span class="unit">m·s⁻¹</span></div>
@@ -195,7 +200,10 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     var d=ds[Math.floor(r()*ds.length)];
     var phase=r();
     var seed=Math.floor(r()*1e9);
-    return {name:name,T1:T1,d:d,phase:phase,seed:seed};
+    var dws=[60,75,90,105,120], das=[100,150,200,250,300];
+    var dw=dws[Math.floor(r()*dws.length)];
+    var da=das[Math.floor(r()*das.length)];
+    return {name:name,T1:T1,d:d,dw:dw,da:da,phase:phase,seed:seed};
   }
   function sounds(P){
     var list=[
@@ -224,11 +232,18 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     }
     return noiseCache.a;
   }
-  var T0=30, W2=420;
-  function echoSample(P,t){
-    var a=noise(P), i=Math.floor(t/W2*4000)%4000, dt=2*P.d/VREF*1000, v=0;
-    if(t>=T0) v+=0.95*Math.exp(-(t-T0)/7)*a[i];
-    if(t>=T0+dt) v+=0.40*Math.exp(-(t-T0-dt)/10)*a[(i+1700)%4000];
+  var MED={
+    air:  {v:340,  W:420, T0:30, dec:0, nom:'Air'},
+    eau:  {v:1500, W:200, T0:20, dec:1, nom:'Eau'},
+    acier:{v:5800, W:120, T0:12, dec:1, nom:'Acier'}
+  };
+  function medDist(P,m){ return m==='eau'?P.dw:(m==='acier'?P.da:P.d); }
+  function medDt(P,m){ return 2*medDist(P,m)/MED[m].v*1000; }
+  function echoSample(P,t,m){
+    var M=MED[m], a=noise(P), i=Math.floor(t/M.W*4000)%4000, dt=medDt(P,m), v=0;
+    var k=M.W/420, tau1=7*k, tau2=10*k;
+    if(t>=M.T0) v+=0.95*Math.exp(-(t-M.T0)/tau1)*a[i];
+    if(t>=M.T0+dt) v+=0.40*Math.exp(-(t-M.T0-dt)/tau2)*a[(i+1700)%4000];
     v+=0.03*a[(i+900)%4000];
     return Math.max(-1,Math.min(1,v));
   }
@@ -283,7 +298,7 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   }
 
   // ---------- état ----------
-  var state={tab:1,snd:1};
+  var state={tab:1,snd:1,med:'air'};
   function draw1(){
     var P=params(), S=sounds(P)[state.snd-1], W=6*S.T;
     var c1=$('#s1a').value/1000*W, c2=$('#s1b').value/1000*W;
@@ -291,13 +306,20 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     $('#o1a').textContent=fmt(c1,2)+' ms'; $('#o1b').textContent=fmt(c2,2)+' ms';
     $('#d1').textContent='Durée entre les deux curseurs : '+fmt(Math.abs(c2-c1),2)+' ms';
   }
+  var SCENE={
+    air:'Tu es face à un mur. Tu fais un claquement, puis tu entends son écho.',
+    eau:'Un sonar, placé sous un bateau, envoie un bref signal sonore vers le fond de la mer. Il reçoit ensuite l\'écho.',
+    acier:'Tu frappes l\'extrémité d\'un long rail en acier. L\'onde se réfléchit à l\'autre bout et revient jusqu\'à toi.'
+  };
+  var DISTLAB={air:'Distance au mur',eau:'Profondeur de l\'eau sous le bateau',acier:'Longueur du rail'};
   function draw2(){
-    var P=params();
-    var c1=$('#s2a').value/1000*W2, c2=$('#s2b').value/1000*W2;
-    plot($('#cv2'),W2,function(t){ return echoSample(P,t); },[c1,c2]);
-    $('#o2a').textContent=fmt(c1,0)+' ms'; $('#o2b').textContent=fmt(c2,0)+' ms';
-    $('#d2').textContent='Durée entre les deux curseurs : '+fmt(Math.abs(c2-c1),0)+' ms';
-    $('#dist').textContent='Distance au mur : d = '+fmt(P.d,0)+' m';
+    var P=params(), m=state.med, M=MED[m];
+    var c1=$('#s2a').value/1000*M.W, c2=$('#s2b').value/1000*M.W;
+    plot($('#cv2'),M.W,function(t){ return echoSample(P,t,m); },[c1,c2]);
+    $('#o2a').textContent=fmt(c1,M.dec)+' ms'; $('#o2b').textContent=fmt(c2,M.dec)+' ms';
+    $('#d2').textContent='Durée entre les deux curseurs : '+fmt(Math.abs(c2-c1),M.dec)+' ms';
+    $('#dist').textContent=DISTLAB[m]+' : d = '+fmt(medDist(P,m),0)+' m';
+    $('#scene').textContent=SCENE[m];
   }
   function refresh(){
     var P=params();
@@ -323,6 +345,16 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
       $('#s1a').value=100; $('#s1b').value=400;
       ['#t1ms','#t1s','#f1'].forEach(function(i){ $(i).value=''; });
       $('#fb1').innerHTML='';
+      refresh();
+    };
+  });
+  document.querySelectorAll('#meds button[data-m]').forEach(function(b){
+    b.onclick=function(){
+      state.med=b.dataset.m;
+      document.querySelectorAll('#meds button[data-m]').forEach(function(x){ x.setAttribute('aria-pressed', x===b); });
+      $('#s2a').value=60; $('#s2b').value=250;
+      ['#dtms','#dts','#dd','#vv'].forEach(function(i){ $(i).value=''; });
+      $('#fb2').innerHTML='';
       refresh();
     };
   });
@@ -376,7 +408,7 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   $('#play2').onclick=function(){
     try{
       var P=params(), c=ctx(), sr=c.sampleRate, buf=c.createBuffer(1,Math.floor(sr*0.9),sr), d=buf.getChannelData(0);
-      var r=mulberry(P.seed), dt=2*P.d/VREF;
+      var r=mulberry(P.seed), dt=medDt(P,state.med)/1000;
       function burst(start,amp,tau){ var s0=Math.floor(start*sr); for(var i=0;i<sr*0.2;i++){ var t=i/sr; if(s0+i<d.length) d[s0+i]+=amp*Math.exp(-t/tau)*(r()*2-1); } }
       burst(0.05,0.8,0.012); burst(0.05+dt,0.3,0.02);
       var src=c.createBufferSource(); src.buffer=buf; src.connect(c.destination); src.start();
@@ -414,35 +446,35 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
     show($('#fb1'),items);
   };
   $('#chk2').onclick=function(){
-    var P=params(), items=[], dtTrue=2*P.d/VREF*1000;
+    var P=params(), items=[], m=state.med, M=MED[m], dist=medDist(P,m), dtTrue=medDt(P,m), vref=M.v;
     var Dm=num('#dtms'), Ds=num('#dts'), D=num('#dd'), v=num('#vv');
     if(Dm===null||Ds===null||D===null||v===null){ show($('#fb2'),[{ok:false,t:'Remplis les quatre cases avant de vérifier.'}]); return; }
-    items.push(Math.abs(Dm-dtTrue)<=Math.max(8,0.06*dtTrue)
+    items.push(Math.abs(Dm-dtTrue)<=Math.max(0.06*dtTrue,0.012*M.W)
       ? {ok:true,t:'ta lecture de la durée est cohérente avec le signal.'}
-      : {ok:false,t:'mesure la durée entre le début du claquement et le début de l\'écho.'});
+      : {ok:false,t:'mesure la durée entre le début de l\'émission et le début de l\'écho.'});
     items.push(close(Ds,Dm/1000,0.02)
       ? {ok:true,t:'la conversion de ms en s est juste.'}
       : {ok:false,t:'conversion : 1 ms = 10⁻³ s, donc Δt (s) = Δt (ms) × 10⁻³.'});
-    if(close(D,2*P.d,0.01)){
+    if(close(D,2*dist,0.01)){
       items.push({ok:true,t:'le son fait un aller-retour : distance parcourue = 2 × d.'});
-    } else if(close(D,P.d,0.01)){
-      items.push({ok:false,t:'le son va jusqu\'au mur puis revient : la distance parcourue est 2 × d, pas d.'});
+    } else if(close(D,dist,0.01)){
+      items.push({ok:false,t:'le son va jusqu\'à l\'obstacle puis revient : la distance parcourue est 2 × d, pas d.'});
     } else {
-      items.push({ok:false,t:'la distance parcourue entre le claquement et l\'écho est 2 × d.'});
+      items.push({ok:false,t:'la distance parcourue entre l\'émission et l\'écho est 2 × d.'});
     }
     if(close(v,D/Ds,0.02)){
       items.push({ok:true,t:'v = d / Δt est bien appliquée avec tes valeurs.'});
     } else if(close(v,D/Dm,0.03)){
       items.push({ok:false,t:'tu as divisé par la durée en ms. Utilise la durée en secondes pour obtenir des m·s⁻¹.'});
-    } else if(close(v,P.d/Ds,0.03)){
+    } else if(close(v,dist/Ds,0.03)){
       items.push({ok:false,t:'tu as oublié l\'aller-retour : utilise la distance 2 × d.'});
     } else {
       items.push({ok:false,t:'refais le calcul v = d / Δt avec la distance en m et la durée en s.'});
     }
-    var ecart=Math.abs(v-VREF)/VREF*100;
+    var ecart=Math.abs(v-vref)/vref*100;
     items.push(ecart<=6
-      ? {ok:true,t:'ta célérité est proche de la valeur de référence 340 m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %).'}
-      : {ok:false,t:'ta célérité s\'éloigne de la valeur de référence 340 m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %). Vérifie ta lecture et tes unités.'});
+      ? {ok:true,t:'ta célérité est proche de la valeur du cours pour ce milieu, '+fmt(vref,0)+' m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %).'}
+      : {ok:false,t:'ta célérité s\'éloigne de la valeur du cours pour ce milieu, '+fmt(vref,0)+' m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %). Vérifie ta lecture et tes unités.'});
     show($('#fb2'),items);
   };
 
@@ -450,14 +482,16 @@ canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border
   function renderProf(){
     var el=$('#prof');
     if(!/[?&]prof(=|&|$)/.test(location.search)){ el.hidden=true; return; }
-    var P=params(), s=sounds(P), name=$('#prenom').value.trim()||'valeurs d\'exemple';
-    var T1=P.T1, T3=P.T1/2, dt=2*P.d/VREF*1000;
-    var Ts1=T1/1000, Ts3=T3/1000, dts=dt/1000;
-    el.hidden=false;
-    el.innerHTML='<h2>Solution (mode professeur) : '+name+'</h2>'+
-      '<p><b>Sons 1 et 2</b> : T = '+fmt(T1,2)+' ms = '+fmt(T1,2)+' × 10⁻³ s = '+fmt(Ts1,4)+' s ; f = 1 / T = 1 / '+fmt(Ts1,4)+' = '+fmt(1/Ts1,0)+' Hz (même hauteur, timbres différents).</p>'+
-      '<p><b>Son 3</b> : T = '+fmt(T3,2)+' ms = '+fmt(T3,2)+' × 10⁻³ s = '+fmt(Ts3,5)+' s ; f = 1 / '+fmt(Ts3,5)+' = '+fmt(1/Ts3,0)+' Hz (plus aigu).</p>'+
-      '<p><b>Célérité</b> : d = '+fmt(P.d,0)+' m ; Δt ≈ '+fmt(dt,0)+' ms = '+fmt(dt,0)+' × 10⁻³ s = '+fmt(dts,3)+' s ; distance parcourue = 2 × '+fmt(P.d,0)+' = '+fmt(2*P.d,0)+' m ; v = '+fmt(2*P.d,0)+' / '+fmt(dts,3)+' ≈ '+fmt(VREF,0)+' m·s⁻¹.</p>';
+    var P=params(), name=$('#prenom').value.trim()||'valeurs d\'exemple';
+    var T1=P.T1, T3=P.T1/2, Ts1=T1/1000, Ts3=T3/1000;
+    var h='<h2>Solution (mode professeur) : '+name+'</h2>'+
+      '<p><b>Sons 1 et 2</b> : T = '+fmt(T1,2)+' ms = '+fmt(T1,2)+' × 10⁻³ s = '+fmt(Ts1,4)+' s ; f = 1 / T = 1 / '+fmt(Ts1,4)+' = '+fmt(1/Ts1,0)+' Hz.</p>'+
+      '<p><b>Son 3</b> : T = '+fmt(T3,2)+' ms = '+fmt(T3,2)+' × 10⁻³ s = '+fmt(Ts3,5)+' s ; f = 1 / '+fmt(Ts3,5)+' = '+fmt(1/Ts3,0)+' Hz.</p>';
+    ['air','eau','acier'].forEach(function(m){
+      var d=medDist(P,m), dt=medDt(P,m), dts=dt/1000;
+      h+='<p><b>'+MED[m].nom+'</b> : d = '+fmt(d,0)+' m ; Δt ≈ '+fmt(dt,1)+' ms = '+fmt(dt,1)+' × 10⁻³ s = '+fmt(dts,4)+' s ; distance parcourue = 2 × '+fmt(d,0)+' = '+fmt(2*d,0)+' m ; v = '+fmt(2*d,0)+' / '+fmt(dts,4)+' ≈ '+fmt(MED[m].v,0)+' m·s⁻¹.</p>';
+    });
+    el.hidden=false; el.innerHTML=h;
   }
 
   refresh();
