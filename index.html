@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le son : période, fréquence et célérité</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f6f9; --panel:#ffffff; --ink:#14213d; --muted:#4a5a73; --line:#cfdbe5;
+  --plot:#fbfdff; --grid-minor:#e3ecf2; --grid-major:#b9cad7; --axis:#14213d;
+  --signal:#1b4fb8; --c1:#0f766e; --c2:#b45309; --accent:#1b4fb8; --accent-ink:#ffffff;
+  --ok:#17663a; --bad:#a32020; --okbg:#e6f4ec; --badbg:#fbeaea;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1623; --panel:#152033; --ink:#e8eef6; --muted:#a3b2c7; --line:#2a3b55;
+    --plot:#0b1320; --grid-minor:#1a2a40; --grid-major:#2f4766; --axis:#e8eef6;
+    --signal:#82b4ff; --c1:#4fd1c5; --c2:#f6ad55; --accent:#82b4ff; --accent-ink:#0e1623;
+    --ok:#7fdca0; --bad:#ff9a9a; --okbg:#12301f; --badbg:#3a1717;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1623; --panel:#152033; --ink:#e8eef6; --muted:#a3b2c7; --line:#2a3b55;
+  --plot:#0b1320; --grid-minor:#1a2a40; --grid-major:#2f4766; --axis:#e8eef6;
+  --signal:#82b4ff; --c1:#4fd1c5; --c2:#f6ad55; --accent:#82b4ff; --accent-ink:#0e1623;
+  --ok:#7fdca0; --bad:#ff9a9a; --okbg:#12301f; --badbg:#3a1717;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:17px;line-height:1.5}
+main{max-width:780px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.55rem;line-height:1.2;margin:0 0 6px}
+h2{font-size:1.1rem;margin:0 0 8px}
+.lead{margin:0 0 16px;color:var(--muted)}
+.who{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:18px}
+.who label{font-weight:700}
+.who small{color:var(--muted);flex-basis:100%}
+input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--panel);border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+input[type=text]{width:220px;max-width:100%}
+input[type=number]{width:130px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:16px}
+.tabs button{font:inherit;font-weight:700;color:var(--muted);background:none;border:0;border-bottom:4px solid transparent;margin-bottom:-2px;padding:10px 12px;cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+section[hidden]{display:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.given{border-left:5px solid var(--accent);border-radius:4px 10px 10px 4px}
+.given p{margin:2px 0}
+.big{font-size:1.25rem;font-weight:700}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.seg button,.btn{font:inherit;font-weight:700;border-radius:6px;border:1.5px solid var(--accent);padding:8px 14px;cursor:pointer;background:var(--panel);color:var(--ink)}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+canvas{display:block;width:100%;height:270px;border:1px solid var(--line);border-radius:8px;touch-action:none;cursor:ew-resize}
+.cursors{display:grid;gap:10px;margin:12px 0 4px}
+.cur{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+.cur .tag{font-weight:700;min-width:84px}
+.cur input[type=range]{width:100%;height:32px}
+.cur output{font-variant-numeric:tabular-nums;min-width:96px;text-align:right}
+.t1{color:var(--c1)} .t2{color:var(--c2)}
+.diff{margin:8px 0 0;font-weight:700}
+.row{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;margin-bottom:10px}
+.row .q{grid-column:1/-1;font-weight:700}
+.row .unit{color:var(--muted)}
+.fields{display:grid;gap:4px}
+.field{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:10px}
+.field label{flex:1 1 100%;font-weight:700}
+.field .unit{color:var(--muted)}
+.fb{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+.fb li{padding:8px 10px;border-radius:6px;border:1px solid var(--line)}
+.fb li.ok{background:var(--okbg);color:var(--ok);border-color:var(--ok)}
+.fb li.bad{background:var(--badbg);color:var(--bad);border-color:var(--bad)}
+.fb li b{color:inherit}
+.hint{color:var(--muted);font-size:.95rem}
+.prof{border:2px dashed var(--c2)}
+.prof p{margin:4px 0}
+@media (max-width:520px){
+  body{font-size:16px}
+  .cur{grid-template-columns:1fr auto}
+  .cur .tag{grid-column:1/-1}
+  canvas{height:230px}
+}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Le son : période, fréquence et célérité</h1>
+  <p class="lead">Lis les durées sur le signal, convertis les unités, puis calcule.</p>
+
+  <div class="who">
+    <label for="prenom">Ton prénom</label>
+    <input id="prenom" type="text" autocomplete="off" placeholder="par exemple : Lina">
+    <small id="prenomHint">Tes valeurs dépendent de ton prénom. Écris-le comme sur ta fiche. Sans prénom, ce sont des valeurs d'exemple.</small>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab1" aria-selected="true" aria-controls="p1">Période et fréquence</button>
+    <button role="tab" id="tab2" aria-selected="false" aria-controls="p2">Célérité du son</button>
+  </div>
+
+  <!-- PARTIE 1 -->
+  <section id="p1" role="tabpanel" aria-labelledby="tab1">
+    <div class="panel given">
+      <h2>Relation donnée</h2>
+      <p class="big">f = 1 / T</p>
+      <p>T : période du signal, en secondes (s). f : fréquence du son, en hertz (Hz).</p>
+    </div>
+
+    <div class="panel">
+      <div class="seg" id="sounds" role="group" aria-label="Choisir un son">
+        <button data-s="1" aria-pressed="true">Son 1</button>
+        <button data-s="2" aria-pressed="false">Son 2</button>
+        <button data-s="3" aria-pressed="false">Son 3</button>
+        <button class="btn primary" id="play1" type="button">Écouter ce son</button>
+      </div>
+      <canvas id="cv1" aria-label="Signal sonore : tension en fonction du temps en millisecondes"></canvas>
+      <div class="cursors">
+        <div class="cur"><span class="tag t1">Curseur 1</span><input type="range" id="s1a" min="0" max="1000" value="100" aria-label="Position du curseur 1"><output id="o1a"></output></div>
+        <div class="cur"><span class="tag t2">Curseur 2</span><input type="range" id="s1b" min="0" max="1000" value="400" aria-label="Position du curseur 2"><output id="o1b"></output></div>
+      </div>
+      <p class="diff" id="d1"></p>
+      <p class="hint">Place les curseurs sur deux motifs identiques qui se suivent (par exemple deux sommets). Tu peux aussi toucher le graphique.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Mes résultats pour ce son</h2>
+      <div class="field"><label for="t1ms">Période lue sur le signal</label><input id="t1ms" type="number" step="any" inputmode="decimal"><span class="unit">ms</span></div>
+      <div class="field"><label for="t1s">Période convertie</label><input id="t1s" type="number" step="any" inputmode="decimal"><span class="unit">s</span></div>
+      <div class="field"><label for="f1">Fréquence calculée</label><input id="f1" type="number" step="any" inputmode="decimal"><span class="unit">Hz</span></div>
+      <button class="btn primary" id="chk1" type="button">Vérifier mes résultats</button>
+      <ul class="fb" id="fb1" aria-live="polite"></ul>
+    </div>
+  </section>
+
+  <!-- PARTIE 2 -->
+  <section id="p2" role="tabpanel" aria-labelledby="tab2" hidden>
+    <div class="panel given">
+      <h2>Relation donnée</h2>
+      <p class="big">v = d / Δt</p>
+      <p>v : célérité du son, en m·s⁻¹. d : distance parcourue par le son, en m. Δt : durée du trajet, en s.</p>
+    </div>
+
+    <div class="panel">
+      <p class="big" id="dist"></p>
+      <p>Tu es placé face à un mur. Tu fais un claquement, puis tu entends son écho.</p>
+      <div class="seg"><button class="btn primary" id="play2" type="button">Écouter le claquement et l'écho</button></div>
+      <canvas id="cv2" aria-label="Enregistrement du claquement et de son écho : tension en fonction du temps en millisecondes"></canvas>
+      <div class="cursors">
+        <div class="cur"><span class="tag t1">Curseur 1</span><input type="range" id="s2a" min="0" max="1000" value="60" aria-label="Position du curseur 1"><output id="o2a"></output></div>
+        <div class="cur"><span class="tag t2">Curseur 2</span><input type="range" id="s2b" min="0" max="1000" value="250" aria-label="Position du curseur 2"><output id="o2b"></output></div>
+      </div>
+      <p class="diff" id="d2"></p>
+      <p class="hint">Le premier groupe de pics est le claquement. Le second, plus faible, est l'écho. Place les curseurs au début de chacun.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Mes résultats</h2>
+      <div class="field"><label for="dtms">Durée entre le claquement et l'écho, lue sur le signal</label><input id="dtms" type="number" step="any" inputmode="decimal"><span class="unit">ms</span></div>
+      <div class="field"><label for="dts">Durée convertie</label><input id="dts" type="number" step="any" inputmode="decimal"><span class="unit">s</span></div>
+      <div class="field"><label for="dd">Distance parcourue par le son pendant cette durée</label><input id="dd" type="number" step="any" inputmode="decimal"><span class="unit">m</span></div>
+      <div class="field"><label for="vv">Célérité calculée</label><input id="vv" type="number" step="any" inputmode="decimal"><span class="unit">m·s⁻¹</span></div>
+      <button class="btn primary" id="chk2" type="button">Vérifier mes résultats</button>
+      <ul class="fb" id="fb2" aria-live="polite"></ul>
+    </div>
+  </section>
+
+  <section id="prof" class="panel prof" hidden></section>
+</main>
+
+<script>
+(function(){
+  var $ = function(s){ return document.querySelector(s); };
+  var VREF = 340; // célérité de référence dans l'air à 20 °C (cours)
+
+  function norm(s){ return s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' '); }
+  function hash(s){ var h=2166136261; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
+  function mulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  function fmt(x,dec){ return x.toLocaleString('fr-FR',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+  function num(id){ var v=$(id).value.replace(',','.').trim(); if(v==='') return null; var n=parseFloat(v); return isNaN(n)?null:n; }
+  function close(a,b,tol){ return Math.abs(a-b) <= tol*Math.abs(b); }
+
+  // ---------- paramètres liés au prénom ----------
+  function params(){
+    var name = norm($('#prenom').value);
+    var r = mulberry(hash(name || 'exemple'));
+    var T1s=[2.5,4,5,8,10], ds=[25,30,35,40,45,50,55,60];
+    var T1=T1s[Math.floor(r()*T1s.length)];
+    var d=ds[Math.floor(r()*ds.length)];
+    var phase=r();
+    var seed=Math.floor(r()*1e9);
+    return {name:name,T1:T1,d:d,phase:phase,seed:seed};
+  }
+  function sounds(P){
+    var list=[
+      {T:P.T1,harm:[1,0.15]},
+      {T:P.T1,harm:[1,0.7,0.5,0.3]},
+      {T:P.T1/2,harm:[1,0.15]}
+    ];
+    list.forEach(function(s){
+      var m=0; for(var i=0;i<400;i++){ var v=rawWave(s,i/400*s.T,0); if(Math.abs(v)>m) m=Math.abs(v); }
+      s.norm=m;
+    });
+    return list;
+  }
+  function rawWave(s,t,phase){
+    var v=0; for(var k=0;k<s.harm.length;k++){ v+=s.harm[k]*Math.sin(2*Math.PI*(k+1)*(t/s.T+phase)); }
+    return v;
+  }
+
+  // bruit reproductible pour la partie 2
+  var noiseCache={seed:null,a:null};
+  function noise(P){
+    if(noiseCache.seed!==P.seed){
+      var r=mulberry(P.seed), a=new Float32Array(4000);
+      for(var i=0;i<a.length;i++) a[i]=r()*2-1;
+      noiseCache={seed:P.seed,a:a};
+    }
+    return noiseCache.a;
+  }
+  var T0=30, W2=420;
+  function echoSample(P,t){
+    var a=noise(P), i=Math.floor(t/W2*4000)%4000, dt=2*P.d/VREF*1000, v=0;
+    if(t>=T0) v+=0.95*Math.exp(-(t-T0)/7)*a[i];
+    if(t>=T0+dt) v+=0.40*Math.exp(-(t-T0-dt)/10)*a[(i+1700)%4000];
+    v+=0.03*a[(i+900)%4000];
+    return Math.max(-1,Math.min(1,v));
+  }
+
+  // ---------- tracé ----------
+  function niceStep(W){
+    var c=[0.5,1,2,5,10,20,50,100];
+    for(var i=0;i<c.length;i++){ if(W/c[i]<=10) return c[i]; }
+    return 100;
+  }
+  function plot(cv,W,sample,curs){
+    var dpr=window.devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight;
+    if(!w||!h) return;
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+    var g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0);
+    var css=getComputedStyle(document.documentElement);
+    var col=function(n){ return css.getPropertyValue(n).trim(); };
+    var L=40,R=12,Tp=14,B=44, pw=w-L-R, ph=h-Tp-B;
+    var X=function(t){ return L+t/W*pw; };
+    var Y=function(v){ return Tp+ph/2-v*ph/2*0.9; };
+    cv._g={L:L,pw:pw,W:W};
+    g.fillStyle=col('--plot'); g.fillRect(0,0,w,h);
+    var step=niceStep(W), minor=step/5, i, t;
+    g.lineWidth=1;
+    g.strokeStyle=col('--grid-minor'); g.beginPath();
+    for(i=0;i*minor<=W+1e-9;i++){ t=i*minor; g.moveTo(X(t),Tp); g.lineTo(X(t),Tp+ph); }
+    for(i=0;i<=8;i++){ var yy=Tp+ph*i/8; g.moveTo(L,yy); g.lineTo(L+pw,yy); }
+    g.stroke();
+    g.strokeStyle=col('--grid-major'); g.beginPath();
+    for(i=0;i*step<=W+1e-9;i++){ t=i*step; g.moveTo(X(t),Tp); g.lineTo(X(t),Tp+ph); }
+    g.moveTo(L,Tp+ph/2); g.lineTo(L+pw,Tp+ph/2);
+    g.stroke();
+    g.fillStyle=col('--axis'); g.font='13px "Atkinson Hyperlegible",system-ui,sans-serif'; g.textAlign='center';
+    for(i=0;i*step<=W+1e-9;i++){ t=i*step; g.fillText(String(t).replace('.',','),X(t),Tp+ph+16); }
+    g.textAlign='right'; g.fillText('t (ms)',L+pw,Tp+ph+34);
+    g.save(); g.translate(13,Tp+ph/2); g.rotate(-Math.PI/2); g.textAlign='center'; g.fillText('Tension',0,0); g.restore();
+    g.strokeStyle=col('--signal'); g.lineWidth=1.8; g.beginPath();
+    for(var px=0;px<=pw;px++){
+      t=px/pw*W; var y=Y(sample(t));
+      if(px===0) g.moveTo(L+px,y); else g.lineTo(L+px,y);
+    }
+    g.stroke();
+    var cc=[col('--c1'),col('--c2')];
+    curs.forEach(function(ct,k){
+      var x=X(ct);
+      g.strokeStyle=cc[k]; g.lineWidth=2.2; g.setLineDash([]);
+      g.beginPath(); g.moveTo(x,Tp); g.lineTo(x,Tp+ph); g.stroke();
+      g.fillStyle=cc[k]; g.beginPath(); g.moveTo(x-7,Tp); g.lineTo(x+7,Tp); g.lineTo(x,Tp+11); g.closePath(); g.fill();
+      g.font='bold 13px "Atkinson Hyperlegible",system-ui,sans-serif'; g.textAlign='center';
+      g.fillText(String(k+1),x,Tp+ph-6);
+    });
+  }
+
+  // ---------- état ----------
+  var state={tab:1,snd:1};
+  function draw1(){
+    var P=params(), S=sounds(P)[state.snd-1], W=6*S.T;
+    var c1=$('#s1a').value/1000*W, c2=$('#s1b').value/1000*W;
+    plot($('#cv1'),W,function(t){ return rawWave(S,t,P.phase)/S.norm; },[c1,c2]);
+    $('#o1a').textContent=fmt(c1,2)+' ms'; $('#o1b').textContent=fmt(c2,2)+' ms';
+    $('#d1').textContent='Durée entre les deux curseurs : '+fmt(Math.abs(c2-c1),2)+' ms';
+  }
+  function draw2(){
+    var P=params();
+    var c1=$('#s2a').value/1000*W2, c2=$('#s2b').value/1000*W2;
+    plot($('#cv2'),W2,function(t){ return echoSample(P,t); },[c1,c2]);
+    $('#o2a').textContent=fmt(c1,0)+' ms'; $('#o2b').textContent=fmt(c2,0)+' ms';
+    $('#d2').textContent='Durée entre les deux curseurs : '+fmt(Math.abs(c2-c1),0)+' ms';
+    $('#dist').textContent='Distance au mur : d = '+fmt(P.d,0)+' m';
+  }
+  function refresh(){
+    var P=params();
+    $('#prenomHint').textContent = P.name ? 'Valeurs calculées pour « '+$('#prenom').value.trim()+' ».' : 'Tes valeurs dépendent de ton prénom. Écris-le comme sur ta fiche. Sans prénom, ce sont des valeurs d\'exemple.';
+    if(state.tab===1) draw1(); else draw2();
+    renderProf();
+  }
+
+  // ---------- onglets ----------
+  function setTab(n){
+    state.tab=n;
+    $('#p1').hidden=(n!==1); $('#p2').hidden=(n!==2);
+    $('#tab1').setAttribute('aria-selected',n===1); $('#tab2').setAttribute('aria-selected',n===2);
+    refresh();
+  }
+  $('#tab1').onclick=function(){ setTab(1); };
+  $('#tab2').onclick=function(){ setTab(2); };
+
+  document.querySelectorAll('#sounds button[data-s]').forEach(function(b){
+    b.onclick=function(){
+      state.snd=+b.dataset.s;
+      document.querySelectorAll('#sounds button[data-s]').forEach(function(x){ x.setAttribute('aria-pressed', x===b); });
+      $('#s1a').value=100; $('#s1b').value=400;
+      ['#t1ms','#t1s','#f1'].forEach(function(i){ $(i).value=''; });
+      $('#fb1').innerHTML='';
+      refresh();
+    };
+  });
+  ['#s1a','#s1b','#s2a','#s2b'].forEach(function(id){ $(id).addEventListener('input',refresh); });
+  $('#prenom').addEventListener('input',function(){
+    ['#t1ms','#t1s','#f1','#dtms','#dts','#dd','#vv'].forEach(function(i){ $(i).value=''; });
+    $('#fb1').innerHTML=''; $('#fb2').innerHTML='';
+    refresh();
+  });
+  window.addEventListener('resize',refresh);
+  if(window.matchMedia){ var mq=window.matchMedia('(prefers-color-scheme: dark)'); if(mq.addEventListener) mq.addEventListener('change',refresh); }
+
+  // toucher / glisser sur le graphique
+  function bindDrag(cv,ida,idb){
+    var active=null;
+    function setFrom(e){
+      var g=cv._g; if(!g) return;
+      var rect=cv.getBoundingClientRect();
+      var f=Math.max(0,Math.min(1,(e.clientX-rect.left-g.L)/g.pw));
+      $(active).value=Math.round(f*1000); refresh();
+    }
+    cv.addEventListener('pointerdown',function(e){
+      var g=cv._g; if(!g) return;
+      var rect=cv.getBoundingClientRect(), f=(e.clientX-rect.left-g.L)/g.pw*1000;
+      var a=+$(ida).value, b=+$(idb).value;
+      active=(Math.abs(f-a)<=Math.abs(f-b))?ida:idb;
+      cv.setPointerCapture(e.pointerId); setFrom(e);
+    });
+    cv.addEventListener('pointermove',function(e){ if(active && (e.buttons||e.pointerType==='touch')) setFrom(e); });
+    cv.addEventListener('pointerup',function(){ active=null; });
+    cv.addEventListener('pointercancel',function(){ active=null; });
+  }
+  bindDrag($('#cv1'),'#s1a','#s1b');
+  bindDrag($('#cv2'),'#s2a','#s2b');
+
+  // ---------- son ----------
+  var ac=null;
+  function ctx(){ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); return ac; }
+  $('#play1').onclick=function(){
+    try{
+      var P=params(), S=sounds(P)[state.snd-1], c=ctx(), n=S.harm.length;
+      var real=new Float32Array(n+1), imag=new Float32Array(n+1);
+      S.harm.forEach(function(a,i){ imag[i+1]=a; });
+      var o=c.createOscillator(); o.setPeriodicWave(c.createPeriodicWave(real,imag)); o.frequency.value=1000/S.T;
+      var gn=c.createGain(), now=c.currentTime;
+      gn.gain.setValueAtTime(0,now); gn.gain.linearRampToValueAtTime(0.22,now+0.03);
+      gn.gain.setValueAtTime(0.22,now+1.1); gn.gain.linearRampToValueAtTime(0,now+1.3);
+      o.connect(gn); gn.connect(c.destination); o.start(now); o.stop(now+1.35);
+    }catch(e){}
+  };
+  $('#play2').onclick=function(){
+    try{
+      var P=params(), c=ctx(), sr=c.sampleRate, buf=c.createBuffer(1,Math.floor(sr*0.9),sr), d=buf.getChannelData(0);
+      var r=mulberry(P.seed), dt=2*P.d/VREF;
+      function burst(start,amp,tau){ var s0=Math.floor(start*sr); for(var i=0;i<sr*0.2;i++){ var t=i/sr; if(s0+i<d.length) d[s0+i]+=amp*Math.exp(-t/tau)*(r()*2-1); } }
+      burst(0.05,0.8,0.012); burst(0.05+dt,0.3,0.02);
+      var src=c.createBufferSource(); src.buffer=buf; src.connect(c.destination); src.start();
+    }catch(e){}
+  };
+
+  // ---------- vérification ----------
+  function show(ul,items){
+    ul.innerHTML='';
+    items.forEach(function(it){
+      var li=document.createElement('li'); li.className=it.ok?'ok':'bad';
+      li.innerHTML='<b>'+(it.ok?'Correct. ':'À revoir. ')+'</b>'+it.t;
+      ul.appendChild(li);
+    });
+  }
+  $('#chk1').onclick=function(){
+    var P=params(), S=sounds(P)[state.snd-1], items=[];
+    var Tm=num('#t1ms'), Ts=num('#t1s'), f=num('#f1');
+    if(Tm===null||Ts===null||f===null){ show($('#fb1'),[{ok:false,t:'Remplis les trois cases avant de vérifier.'}]); return; }
+    items.push(close(Tm,S.T,0.07)
+      ? {ok:true,t:'ta lecture de la période est cohérente avec le signal.'}
+      : {ok:false,t:'ta lecture s\'éloigne du signal. La période est la durée du plus petit motif qui se répète : mesure entre deux sommets consécutifs.'});
+    items.push(close(Ts,Tm/1000,0.02)
+      ? {ok:true,t:'la conversion de ms en s est juste.'}
+      : {ok:false,t:'conversion : 1 ms = 10⁻³ s, donc T (s) = T (ms) × 10⁻³.'});
+    if(close(f,1/Ts,0.03)){
+      items.push({ok:true,t:'f = 1 / T est bien appliquée avec ta valeur de T en secondes.'});
+    } else if(close(f,1/Tm,0.03)){
+      items.push({ok:false,t:'tu as utilisé T en ms. La relation f = 1 / T donne des hertz seulement si T est en secondes.'});
+    } else {
+      items.push({ok:false,t:'refais le calcul f = 1 / T avec T en secondes.'});
+    }
+    var all=items.every(function(i){return i.ok;});
+    if(all && close(f,1000/S.T,0.08)) items.push({ok:true,t:'tes résultats sont cohérents avec le signal de ce son.'});
+    show($('#fb1'),items);
+  };
+  $('#chk2').onclick=function(){
+    var P=params(), items=[], dtTrue=2*P.d/VREF*1000;
+    var Dm=num('#dtms'), Ds=num('#dts'), D=num('#dd'), v=num('#vv');
+    if(Dm===null||Ds===null||D===null||v===null){ show($('#fb2'),[{ok:false,t:'Remplis les quatre cases avant de vérifier.'}]); return; }
+    items.push(Math.abs(Dm-dtTrue)<=Math.max(8,0.06*dtTrue)
+      ? {ok:true,t:'ta lecture de la durée est cohérente avec le signal.'}
+      : {ok:false,t:'mesure la durée entre le début du claquement et le début de l\'écho.'});
+    items.push(close(Ds,Dm/1000,0.02)
+      ? {ok:true,t:'la conversion de ms en s est juste.'}
+      : {ok:false,t:'conversion : 1 ms = 10⁻³ s, donc Δt (s) = Δt (ms) × 10⁻³.'});
+    if(close(D,2*P.d,0.01)){
+      items.push({ok:true,t:'le son fait un aller-retour : distance parcourue = 2 × d.'});
+    } else if(close(D,P.d,0.01)){
+      items.push({ok:false,t:'le son va jusqu\'au mur puis revient : la distance parcourue est 2 × d, pas d.'});
+    } else {
+      items.push({ok:false,t:'la distance parcourue entre le claquement et l\'écho est 2 × d.'});
+    }
+    if(close(v,D/Ds,0.02)){
+      items.push({ok:true,t:'v = d / Δt est bien appliquée avec tes valeurs.'});
+    } else if(close(v,D/Dm,0.03)){
+      items.push({ok:false,t:'tu as divisé par la durée en ms. Utilise la durée en secondes pour obtenir des m·s⁻¹.'});
+    } else if(close(v,P.d/Ds,0.03)){
+      items.push({ok:false,t:'tu as oublié l\'aller-retour : utilise la distance 2 × d.'});
+    } else {
+      items.push({ok:false,t:'refais le calcul v = d / Δt avec la distance en m et la durée en s.'});
+    }
+    var ecart=Math.abs(v-VREF)/VREF*100;
+    items.push(ecart<=6
+      ? {ok:true,t:'ta célérité est proche de la valeur de référence 340 m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %).'}
+      : {ok:false,t:'ta célérité s\'éloigne de la valeur de référence 340 m·s⁻¹ (écart relatif : '+fmt(ecart,1)+' %). Vérifie ta lecture et tes unités.'});
+    show($('#fb2'),items);
+  };
+
+  // ---------- solution pour le professeur (ajouter ?prof à l'adresse) ----------
+  function renderProf(){
+    var el=$('#prof');
+    if(!/[?&]prof(=|&|$)/.test(location.search)){ el.hidden=true; return; }
+    var P=params(), s=sounds(P), name=$('#prenom').value.trim()||'valeurs d\'exemple';
+    var T1=P.T1, T3=P.T1/2, dt=2*P.d/VREF*1000;
+    var Ts1=T1/1000, Ts3=T3/1000, dts=dt/1000;
+    el.hidden=false;
+    el.innerHTML='<h2>Solution (mode professeur) : '+name+'</h2>'+
+      '<p><b>Sons 1 et 2</b> : T = '+fmt(T1,2)+' ms = '+fmt(T1,2)+' × 10⁻³ s = '+fmt(Ts1,4)+' s ; f = 1 / T = 1 / '+fmt(Ts1,4)+' = '+fmt(1/Ts1,0)+' Hz (même hauteur, timbres différents).</p>'+
+      '<p><b>Son 3</b> : T = '+fmt(T3,2)+' ms = '+fmt(T3,2)+' × 10⁻³ s = '+fmt(Ts3,5)+' s ; f = 1 / '+fmt(Ts3,5)+' = '+fmt(1/Ts3,0)+' Hz (plus aigu).</p>'+
+      '<p><b>Célérité</b> : d = '+fmt(P.d,0)+' m ; Δt ≈ '+fmt(dt,0)+' ms = '+fmt(dt,0)+' × 10⁻³ s = '+fmt(dts,3)+' s ; distance parcourue = 2 × '+fmt(P.d,0)+' = '+fmt(2*P.d,0)+' m ; v = '+fmt(2*P.d,0)+' / '+fmt(dts,3)+' ≈ '+fmt(VREF,0)+' m·s⁻¹.</p>';
+  }
+
+  refresh();
+})();
+</script>
+</body>
+</html>
